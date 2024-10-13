@@ -12,5 +12,6 @@ for fname in fnames:
     print(fname)
     corrects = [el["correct"] for el in outputs]
     acc = sum(corrects) / len(corrects)
+    print("num samples: ", len(corrects))
     print("accuracy: ", acc)
     print()
