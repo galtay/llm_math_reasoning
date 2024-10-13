@@ -8,10 +8,16 @@ ollama models
 * https://ollama.com/library/llama3.1:8b-instruct-fp16
 * https://ollama.com/library/llama3.2:3b-instruct-fp16
 
+hf models for vllm
+* https://huggingface.co/meta-llama/Llama-3.1-8B-Instruct
+* https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct
+
+vllm serve meta-llama/Llama-3.1-8B-Instruct --max_model_len 16384
 
 """
 
 import json
+from pathlib import Path
 import random
 import re
 from openai import OpenAI
@@ -67,8 +73,6 @@ def format_shots(shots=SHOTS):
 
 shots = format_shots()
 
-
-
 question_base = """When Sophie watches her nephew, she gets out a variety of toys for him. The bag of building blocks has 31 blocks in it. The bin of stuffed animals has 8 stuffed animals inside. The tower of stacking rings has 9 multicolored rings on it. Sophie recently bought a tube of bouncy balls, bringing her total number of toys for her nephew up to 62. How many bouncy balls came in the tube?"""
 
 question_template = f"""When {{name}} watches her {{family}}, she gets out a variety of toys for him. The bag of building blocks has {{x}} blocks in it. The bin of stuffed animals has {{y}} stuffed animals inside. The tower of stacking rings has {{z}} multicolored rings on it. {{name}} recently bought a tube of bouncy balls, bringing her total number of toys for her {{family}} up to {{total}}. How many bouncy balls came in the tube?"""
@@ -110,10 +114,17 @@ Always end your response with "the answer is" followed by the numerical answer t
 
 n_trials = 128
 temperature = 0.0
-models = [
-    "llama3.1:8b-instruct-fp16",
-    "llama3.2:3b-instruct-fp16",
-]
+provider = "vllm"
+if provider == "ollama":
+    models = [
+        "llama3.2:3b-instruct-fp16",
+        "llama3.1:8b-instruct-fp16",
+    ]
+elif provider == "vllm":
+    models = [
+#        "meta-llama/Llama-3.2-3B-Instruct",
+        "meta-llama/Llama-3.1-8B-Instruct",
+    ]
 
 for model in models:
 
@@ -137,10 +148,19 @@ for model in models:
         {shots}\n\n// target question\nQ: {question}\n\nA: Let's think step by step.
         """.strip()
 
-        client = OpenAI(
-            base_url = 'http://localhost:11434/v1',
-            api_key='ollama', # required, but unused
-        )
+        if provider == "ollama":
+            client = OpenAI(
+                base_url = 'http://localhost:11434/v1',
+                api_key='ollama', # required, but unused
+            )
+        elif provider == "vllm":
+            client = OpenAI(
+                base_url = "http://localhost:8000/v1",
+                api_key="EMPTY"
+            )
+        else:
+            raise ValueError()
+
         response = client.chat.completions.create(
             model=model,
             temperature=temperature,
@@ -150,7 +170,7 @@ for model in models:
             ]
         )
 
-        llm_answers = re.findall("\d+", response.choices[0].message.content.splitlines()[-1])
+        llm_answers = re.findall(r"\d+", response.choices[0].message.content.splitlines()[-1])
         if len(llm_answers) >= 1:
             llm_answer = int(llm_answers[-1])
         else:
@@ -162,4 +182,8 @@ for model in models:
         print(vars)
         outputs.append(vars)
 
-    json.dump(outputs, open(f"{model.replace(':', '-')}-output.json", "w"), indent=4)
+    outdir = Path(f"{model.replace(':', '-')}")
+    outdir.mkdir(parents=True, exist_ok=True)
+    outpath = outdir / "output.json"
+    with outpath.open("w") as fp:
+        json.dump(outputs, fp, indent=4)
