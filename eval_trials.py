@@ -1,8 +1,8 @@
 import json
 
 fnames = [
-    "llama3.2-3b-instruct-fp16-output.json",
-    "llama3.1-8b-instruct-fp16-output.json",
+    "meta-llama/Llama-3.1-8B-Instruct/output.json",
+    "meta-llama/Llama-3.2-3B-Instruct/output.json",
 ]
 
 

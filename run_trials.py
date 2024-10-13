@@ -13,6 +13,7 @@ hf models for vllm
 * https://huggingface.co/meta-llama/Llama-3.2-3B-Instruct
 
 vllm serve meta-llama/Llama-3.1-8B-Instruct --max_model_len 16384
+vllm serve meta-llama/Llama-3.2-3B-Instruct --max_model_len 16384
 
 """
 
@@ -109,22 +110,31 @@ def get_vars(name=None, family=None, x=None, y=None, z=None, ans=None):
         "total": total,
     }
 
+
 system_message = """As an expert problem solver, solve step by step the following mathematical questions.
 Always end your response with "the answer is" followed by the numerical answer to the question."""
 
 n_trials = 128
 temperature = 0.0
+
 provider = "vllm"
 if provider == "ollama":
+    client = OpenAI(
+        base_url="http://localhost:11434/v1",
+        api_key="ollama",
+    )
     models = [
         "llama3.2:3b-instruct-fp16",
         "llama3.1:8b-instruct-fp16",
     ]
 elif provider == "vllm":
+    client = OpenAI(base_url="http://localhost:8000/v1", api_key="EMPTY")
     models = [
-#        "meta-llama/Llama-3.2-3B-Instruct",
-        "meta-llama/Llama-3.1-8B-Instruct",
+        "meta-llama/Llama-3.2-3B-Instruct",
+        #        "meta-llama/Llama-3.1-8B-Instruct",
     ]
+else:
+    raise ValueError()
 
 for model in models:
 
@@ -148,29 +158,18 @@ for model in models:
         {shots}\n\n// target question\nQ: {question}\n\nA: Let's think step by step.
         """.strip()
 
-        if provider == "ollama":
-            client = OpenAI(
-                base_url = 'http://localhost:11434/v1',
-                api_key='ollama', # required, but unused
-            )
-        elif provider == "vllm":
-            client = OpenAI(
-                base_url = "http://localhost:8000/v1",
-                api_key="EMPTY"
-            )
-        else:
-            raise ValueError()
-
         response = client.chat.completions.create(
             model=model,
             temperature=temperature,
             messages=[
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": prompt},
-            ]
+            ],
         )
 
-        llm_answers = re.findall(r"\d+", response.choices[0].message.content.splitlines()[-1])
+        llm_answers = re.findall(
+            r"\d+", response.choices[0].message.content.splitlines()[-1]
+        )
         if len(llm_answers) >= 1:
             llm_answer = int(llm_answers[-1])
         else:
