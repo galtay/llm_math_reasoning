@@ -112,32 +112,20 @@ def get_vars(name=None, family=None, x=None, y=None, z=None, ans=None):
     }
 
 
-system_message = """As an expert problem solver, solve step by step the following mathematical questions.
-Always end your response with "the answer is" followed by the numerical answer to the question."""
+def main(
+    provider: str,
+    model: str,
+    n_trials: int,
+    temperature: float,
+    system_message: str,
+):
 
-n_trials = 128
-temperature = 0.0
-
-provider = "vllm"
-if provider == "ollama":
-    client = OpenAI(
-        base_url="http://localhost:11434/v1",
-        api_key="ollama",
-    )
-    models = [
-        "llama3.2:3b-instruct-fp16",
-        "llama3.1:8b-instruct-fp16",
-    ]
-elif provider == "vllm":
-    client = OpenAI(base_url="http://localhost:8000/v1", api_key="EMPTY")
-    models = [
-        "meta-llama/Llama-3.2-3B-Instruct",
-        #        "meta-llama/Llama-3.1-8B-Instruct",
-    ]
-else:
-    raise ValueError()
-
-for model in models:
+    if provider == "ollama":
+        client = OpenAI(base_url="http://localhost:11434/v1", api_key="ollama")
+    elif provider == "vllm":
+        client = OpenAI(base_url="http://localhost:8000/v1", api_key="EMPTY")
+    else:
+        raise ValueError()
 
     outputs = []
     for i_trial in range(n_trials):
@@ -158,14 +146,15 @@ for model in models:
         prompt = f"""
         {shots}\n\n// target question\nQ: {question}\n\nA: Let's think step by step.
         """.strip()
+        messages = [
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": prompt},
+        ]
 
         response = client.chat.completions.create(
             model=model,
             temperature=temperature,
-            messages=[
-                {"role": "system", "content": system_message},
-                {"role": "user", "content": prompt},
-            ],
+            messages=messages,
         )
 
         llm_answers = re.findall(
@@ -176,14 +165,29 @@ for model in models:
         else:
             llm_answer = None
         vars["llm_answer"] = llm_answer
-        vars["prompt"] = prompt
+        vars["messages"] = messages
         vars["llm_out"] = response.choices[0].message.content
         vars["correct"] = vars["llm_answer"] == vars["ans"]
         print(vars)
         outputs.append(vars)
 
-    outdir = Path(f"{model.replace(':', '-')}")
+    outdir = Path("output") / f"{model.replace(':', '-')}"
     outdir.mkdir(parents=True, exist_ok=True)
     outpath = outdir / "output.json"
     with outpath.open("w") as fp:
         json.dump(outputs, fp, indent=4)
+
+
+if __name__ == "__main__":
+
+    # model = "meta-llama/Llama-3.2-3B-Instruct"
+    model = "meta-llama/Llama-3.1-8B-Instruct"
+    #    model = "llama3.2:3b-instruct-fp16"
+    #    model = "llama3.1:8b-instruct-fp16"
+
+    system_message = """As an expert problem solver, solve step by step the following mathematical questions.
+Always end your response with "the answer is" followed by the numerical answer to the question."""
+    n_trials = 128
+    temperature = 0.0
+    provider = "vllm"
+    main(provider, model, n_trials, temperature, system_message)
