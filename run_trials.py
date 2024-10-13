@@ -1,4 +1,5 @@
 """
+https://arxiv.org/abs/2410.05229
 
 8-shots from here
 https://github.com/EleutherAI/lm-evaluation-harness/blob/main/lm_eval/tasks/gsm8k/gsm8k-cot.yaml
