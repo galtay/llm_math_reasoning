@@ -111,8 +111,8 @@ Always end your response with "the answer is" followed by the numerical answer t
 n_trials = 128
 temperature = 0.0
 models = [
-    "llama3.2:3b-instruct-fp16",
     "llama3.1:8b-instruct-fp16",
+    "llama3.2:3b-instruct-fp16",
 ]
 
 for model in models:
